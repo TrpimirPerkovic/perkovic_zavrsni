@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="hr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Praćenje temperature i vlage</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+    <style>
+      :root {
+        --pozadina: #f4f5f7;
+        --kartica: #ffffff;
+        --tekst: #1f2328;
+        --prigusen: #6a737d;
+        --rub: #dfe2e5;
+        --temp: #c0392b;
+        --vlaga: #1f6feb;
+        --ok: #2da44e;
+        --upozorenje: #bf8700;
+        --greska: #cf222e;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px 16px 48px;
+        background: var(--pozadina);
+        color: var(--tekst);
+        font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      .omot {
+        max-width: 960px;
+        margin: 0 auto;
+      }
+
+      header {
+        margin-bottom: 24px;
+      }
+      header h1 {
+        margin: 0 0 4px;
+        font-size: 22px;
+        font-weight: 600;
+      }
+      header p {
+        margin: 0;
+        color: var(--prigusen);
+        font-size: 14px;
+      }
+
+      .kartica {
+        background: var(--kartica);
+        border: 1px solid var(--rub);
+        border-radius: 8px;
+        padding: 18px;
+        margin-bottom: 18px;
+      }
+
+      .mreza {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .ocitanje {
+        text-align: center;
+        padding: 26px 18px;
+      }
+      .ocitanje .oznaka {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--prigusen);
+        margin-bottom: 10px;
+      }
+      .ocitanje .vrijednost {
+        font-size: 46px;
+        font-weight: 600;
+        line-height: 1.1;
+      }
+      .ocitanje .vrijednost .jedinica {
+        font-size: 22px;
+        font-weight: 400;
+        color: var(--prigusen);
+      }
+      .ocitanje.t .vrijednost {
+        color: var(--temp);
+      }
+      .ocitanje.v .vrijednost {
+        color: var(--vlaga);
+      }
+      .ocitanje .raspon {
+        margin-top: 8px;
+        font-size: 13px;
+        color: var(--prigusen);
+      }
+
+      .traka {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .gumbi {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .gumbi button {
+        padding: 6px 14px;
+        font-size: 14px;
+        font-family: inherit;
+        background: var(--kartica);
+        color: var(--tekst);
+        border: 1px solid var(--rub);
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .gumbi button:hover {
+        background: #eef0f2;
+      }
+      .gumbi button.aktivan {
+        background: var(--tekst);
+        color: #fff;
+        border-color: var(--tekst);
+      }
+
+      .stanje {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 13px;
+        color: var(--prigusen);
+      }
+      .tocka {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--prigusen);
+        flex: none;
+      }
+      .tocka.ok {
+        background: var(--ok);
+      }
+      .tocka.upozorenje {
+        background: var(--upozorenje);
+      }
+      .tocka.greska {
+        background: var(--greska);
+      }
+
+      .graf-okvir {
+        position: relative;
+        height: 340px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      th,
+      td {
+        padding: 8px 10px;
+        text-align: left;
+        border-bottom: 1px solid var(--rub);
+      }
+      th {
+        font-weight: 600;
+        color: var(--prigusen);
+        font-size: 13px;
+      }
+      td.broj,
+      th.broj {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      h2 {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0 0 12px;
+      }
+
+      .poruka {
+        padding: 12px 14px;
+        border-radius: 6px;
+        font-size: 14px;
+        margin-bottom: 18px;
+      }
+      .poruka.greska {
+        background: #ffebe9;
+        border: 1px solid #ffc1bc;
+        color: #82071e;
+      }
+      .poruka.info {
+        background: #ddf4ff;
+        border: 1px solid #b6e3ff;
+        color: #0550ae;
+      }
+
+      footer {
+        margin-top: 24px;
+        font-size: 13px;
+        color: var(--prigusen);
+        text-align: center;
+      }
+
+      @media (max-width: 520px) {
+        .ocitanje .vrijednost {
+          font-size: 38px;
+        }
+        .graf-okvir {
+          height: 280px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="app" class="omot">
+      <header>
+        <h1>Praćenje temperature i vlage</h1>
+        <p>Raspberry Pi 4 &middot; senzor DHT11</p>
+      </header>
+
+      <div v-if="greska" class="poruka greska">{{ greska }}</div>
+      <div class="mreza">
+        <div class="kartica ocitanje t">
+          <div class="oznaka">Temperatura</div>
+          <div class="vrijednost">
+            {{ trenutno ? trenutno.temperatura.toFixed(1) : '--' }}<span
+              class="jedinica"
+            >
+              °C</span
+            >
+          </div>
+          <div class="raspon" v-if="stat && stat.broj">
+            min {{ stat.temp_min.toFixed(1) }} &middot; prosjek {{
+            stat.temp_avg.toFixed(1) }} &middot; max {{ stat.temp_max.toFixed(1)
+            }}
+          </div>
+        </div>
+
+        <div class="kartica ocitanje v">
+          <div class="oznaka">Relativna vlaga</div>
+          <div class="vrijednost">
+            {{ trenutno ? trenutno.vlaga.toFixed(0) : '--' }}<span
+              class="jedinica"
+            >
+              %</span
+            >
+          </div>
+          <div class="raspon" v-if="stat && stat.broj">
+            min {{ stat.vlaga_min.toFixed(0) }} &middot; prosjek {{
+            stat.vlaga_avg.toFixed(0) }} &middot; max {{
+            stat.vlaga_max.toFixed(0) }}
+          </div>
+        </div>
+      </div>
+
+      <div class="kartica">
+        <div class="traka">
+          <div class="gumbi">
+            <button
+              v-for="r in razdoblja"
+              :key="r.sati"
+              :class="{ aktivan: r.sati === odabranoRazdoblje }"
+              @click="promijeniRazdoblje(r.sati)"
+            >
+              {{ r.oznaka }}
+            </button>
+          </div>
+          <div class="stanje">
+            <span class="tocka" :class="klasaStanja"></span>
+            <span>{{ tekstStanja }}</span>
+          </div>
+        </div>
+
+        <div class="graf-okvir">
+          <canvas ref="platno"></canvas>
+        </div>
+
+        <p v-if="prorijedeno" class="poruka info" style="margin: 14px 0 0">
+          Prikazano {{ tocke.length }} od {{ sirovihTocaka }} mjerenja. Niz je
+          prorijeđen radi čitljivosti grafa.
+        </p>
+      </div>
+
+      <div class="kartica" v-if="stanjeUsluge">
+        <h2>Stanje mjerne usluge</h2>
+        <table>
+          <tbody>
+            <tr>
+              <td>Usluga aktivna</td>
+              <td class="broj">{{ stanjeUsluge.radi ? 'da' : 'ne' }}</td>
+            </tr>
+            <tr>
+              <td>Razmak mjerenja</td>
+              <td class="broj">{{ stanjeUsluge.interval }} s</td>
+            </tr>
+            <tr>
+              <td>Uspješnih mjerenja</td>
+              <td class="broj">{{ stanjeUsluge.uspjesnih }}</td>
+            </tr>
+            <tr>
+              <td>Neuspješnih mjerenja</td>
+              <td class="broj">{{ stanjeUsluge.neuspjesnih }}</td>
+            </tr>
+            <tr>
+              <td>Udio pogrešaka</td>
+              <td class="broj">
+                {{ stanjeUsluge.postotak_gresaka.toFixed(2) }} %
+              </td>
+            </tr>
+            <tr v-if="stat">
+              <td>Zapisa u odabranom razdoblju</td>
+              <td class="broj">{{ stat.broj }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer>
+        Posljednje osvježavanje: {{ vrijemeOsvjezavanja || '--' }} &middot;
+        automatski svakih {{ RAZMAK_OSVJEZAVANJA / 1000 }} s
+      </footer>
+    </div>
+
+    <script>
+      const { createApp, ref, computed, onMounted, onUnmounted, nextTick } =
+        Vue;
+
+      const OSNOVNA_ADRESA = "";
+
+      const RAZMAK_OSVJEZAVANJA = 5000;
+      const NAJVISE_TOCAKA = 240;
+
+      createApp({
+        setup() {
+          const trenutno = ref(null);
+          const stat = ref(null);
+          const stanjeUsluge = ref(null);
+          const tocke = ref([]);
+          const sirovihTocaka = ref(0);
+          const greska = ref("");
+          const vrijemeOsvjezavanja = ref("");
+          const odabranoRazdoblje = ref(24);
+          const platno = ref(null);
+
+          let graf = null;
+          let mjerac = null;
+
+          const razdoblja = [
+            { sati: 1, oznaka: "1 sat" },
+            { sati: 6, oznaka: "6 sati" },
+            { sati: 24, oznaka: "24 sata" },
+            { sati: 168, oznaka: "7 dana" },
+          ];
+
+          const prorijedeno = computed(
+            () => sirovihTocaka.value > tocke.value.length,
+          );
+          const starostMinuta = computed(() => {
+            if (!trenutno.value) return null;
+            const t = new Date(trenutno.value.vrijeme);
+            return (Date.now() - t.getTime()) / 5000;
+          });
+
+          const klasaStanja = computed(() => {
+            if (greska.value) return "greska";
+            const s = starostMinuta.value;
+            if (s === null) return "";
+            if (s < 3) return "ok";
+            if (s < 10) return "upozorenje";
+            return "greska";
+          });
+
+          const tekstStanja = computed(() => {
+            if (greska.value) return "poslužitelj nedostupan";
+            const s = starostMinuta.value;
+            if (s === null) return "nema podataka";
+            if (s < 1.5) return "podatak svjež";
+            return `posljednje mjerenje prije ${Math.round(s)} min`;
+          });
+
+          function prorijedi(niz, najvise) {
+            if (niz.length <= najvise) return niz;
+            const korak = Math.ceil(niz.length / najvise);
+            const izlaz = [];
+            for (let i = 0; i < niz.length; i += korak) izlaz.push(niz[i]);
+            if (izlaz[izlaz.length - 1] !== niz[niz.length - 1]) {
+              izlaz.push(niz[niz.length - 1]);
+            }
+            return izlaz;
+          }
+
+          function oznakaVremena(iso, sati) {
+            const d = new Date(iso);
+            const hh = String(d.getHours()).padStart(2, "0");
+            const mm = String(d.getMinutes()).padStart(2, "0");
+            if (sati <= 24) return `${hh}:${mm}`;
+            const dd = String(d.getDate()).padStart(2, "0");
+            const mj = String(d.getMonth() + 1).padStart(2, "0");
+            return `${dd}.${mj}. ${hh}:${mm}`;
+          }
+
+          async function dohvati(putanja) {
+            const odgovor = await fetch(OSNOVNA_ADRESA + putanja);
+            if (!odgovor.ok) {
+              throw new Error(`Poslužitelj je vratio status ${odgovor.status}`);
+            }
+            return odgovor.json();
+          }
+
+          async function osvjezi() {
+            const sati = odabranoRazdoblje.value;
+            try {
+              const zadnje = await dohvati("/api/trenutno").catch(() => null);
+              const [povijest, statistika, stanje] = await Promise.all([
+                dohvati(`/api/povijest?sati=${sati}`),
+                dohvati(`/api/statistika?sati=${sati}`),
+                dohvati("/api/stanje"),
+              ]);
+
+              trenutno.value = zadnje;
+              stat.value = statistika;
+              stanjeUsluge.value = stanje;
+
+              sirovihTocaka.value = povijest.mjerenja.length;
+              tocke.value = prorijedi(povijest.mjerenja, NAJVISE_TOCAKA);
+
+              greska.value = "";
+              vrijemeOsvjezavanja.value = new Date().toLocaleTimeString(
+                "hr-HR",
+              );
+
+              await nextTick();
+              iscrtaj(sati);
+            } catch (e) {
+              greska.value =
+                "Podaci nisu dohvaćeni: " +
+                e.message +
+                ". Provjeri radi li poslužitelj i jesu li uređaji na istoj mreži.";
+            }
+          }
+
+          function iscrtaj(sati) {
+            if (!platno.value) return;
+
+            const oznake = tocke.value.map((m) =>
+              oznakaVremena(m.vrijeme, sati),
+            );
+            const temperature = tocke.value.map((m) => m.temperatura);
+            const vlage = tocke.value.map((m) => m.vlaga);
+
+            if (graf) {
+              graf.data.labels = oznake;
+              graf.data.datasets[0].data = temperature;
+              graf.data.datasets[1].data = vlage;
+              graf.update();
+              return;
+            }
+
+            graf = new Chart(platno.value.getContext("2d"), {
+              type: "line",
+              data: {
+                labels: oznake,
+                datasets: [
+                  {
+                    label: "Temperatura (°C)",
+                    data: temperature,
+                    borderColor: "#c0392b",
+                    backgroundColor: "rgba(192,57,43,.08)",
+                    yAxisID: "yTemp",
+                    tension: 0.3,
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    fill: true,
+                  },
+                  {
+                    label: "Relativna vlaga (%)",
+                    data: vlage,
+                    borderColor: "#1f6feb",
+                    backgroundColor: "rgba(31,111,235,.06)",
+                    yAxisID: "yVlaga",
+                    tension: 0.3,
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    fill: true,
+                  },
+                ],
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
+                plugins: {
+                  legend: {
+                    position: "bottom",
+                    labels: { boxWidth: 14, padding: 16 },
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: (k) => {
+                        const v = k.parsed.y;
+                        return k.datasetIndex === 0
+                          ? ` Temperatura: ${v.toFixed(1)} °C`
+                          : ` Vlaga: ${v.toFixed(0)} %`;
+                      },
+                    },
+                  },
+                },
+                scales: {
+                  x: {
+                    ticks: {
+                      maxTicksLimit: 10,
+                      autoSkip: true,
+                      maxRotation: 0,
+                    },
+                    grid: { display: false },
+                  },
+                  yTemp: {
+                    position: "left",
+                    title: { display: true, text: "Temperatura (°C)" },
+                    grid: { color: "#eceef0" },
+                  },
+                  yVlaga: {
+                    position: "right",
+                    title: { display: true, text: "Relativna vlaga (%)" },
+                    grid: { drawOnChartArea: false },
+                  },
+                },
+              },
+            });
+          }
+
+          function promijeniRazdoblje(sati) {
+            odabranoRazdoblje.value = sati;
+            osvjezi();
+          }
+
+          onMounted(() => {
+            osvjezi();
+            mjerac = setInterval(osvjezi, RAZMAK_OSVJEZAVANJA);
+          });
+
+          onUnmounted(() => {
+            if (mjerac) clearInterval(mjerac);
+            if (graf) graf.destroy();
+          });
+
+          return {
+            trenutno,
+            stat,
+            stanjeUsluge,
+            tocke,
+            sirovihTocaka,
+            greska,
+            vrijemeOsvjezavanja,
+            odabranoRazdoblje,
+            razdoblja,
+            platno,
+            prorijedeno,
+            klasaStanja,
+            tekstStanja,
+            promijeniRazdoblje,
+            RAZMAK_OSVJEZAVANJA,
+          };
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>

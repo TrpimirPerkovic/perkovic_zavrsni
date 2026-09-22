@@ -8,7 +8,7 @@ from sensor import DHT11Senzor
 from baza_podataka import Baza
 
 logger = logging.getLogger(__name__)
-INTERVAL_MJERENJA = 60
+INTERVAL_MJERENJA = 5
 SAT_CISCENJA = 3
 
 class servisMjerenja:
